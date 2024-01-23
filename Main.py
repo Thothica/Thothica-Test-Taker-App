@@ -1,19 +1,48 @@
 from openai import OpenAI
+import re
 
 import streamlit as st
 
+
+def produce_response():
+    response = client.chat.completions.create(
+        model="gpt-4", messages=st.session_state.messages
+    )
+
+    return response.choices[0].message.content.replace("\n", "")
+
+
+def check_response(response: str):
+    feedback = None
+    score = None
+    question = None
+
+    m = re.search(r"<feedback>(.*)</feedback>", response)
+    if m:
+        feedback = m.group(1)
+    m = re.search(r"<score>(.*)</score>", response)
+    if m:
+        score = m.group(1)
+    m = re.search(r"<question>(.*)</question>", response)
+    if m:
+        question = m.group(1)
+
+    if feedback is not None and score is not None and question is not None:
+        return True
+
+    return False
+
+
 st.title("Thothica Test Taker App")
 
-client = OpenAI(api_key = st.secrets["OPENAI_API_KEY"])
+client = OpenAI(api_key="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")
 
 if "messages" not in st.session_state:
-    st.session_state.messages = [{
-        "role" : "system",
-        "content" : "You are a smart assistant."
-      },
-      {
-        "role" : "user",
-        "content" : """Hello Professor Weber,
+    st.session_state.messages = [
+        {"role": "system", "content": "You are a smart assistant."},
+        {
+            "role": "user",
+            "content": """Hello Professor Weber,
 
 I am a teacher currently instructing my students on the first two chapters of your book, "The Protestant Ethic and the Spirit of Capitalism." I would like to request your assistance in evaluating my students' understanding of the material.
 
@@ -35,29 +64,58 @@ Where x is the specific score.
 Also the next question as :
 
 <question>
-x/10
 </question>
 
 Please note that this portion of our correspondence will not be shared with my students.
 
 Thank you for your cooperation. Now You are going to talk to my student, start giving questions. This is an exam, an individual exam. You will ask 5 questions in total and ask one by one. Do not address me now, only give feedback when the student answers.
 
-The test begins, welcome the student and start."""
-      }]
+The test begins, welcome the student and start.""",
+        },
+    ]
 
 if len(st.session_state.messages) == 2:
     response = client.chat.completions.create(
-    model = "gpt-4-1106-preview",
-    messages = st.session_state.messages)
+        model="gpt-4-1106-preview", messages=st.session_state.messages
+    )
     if "<question>" in response.choices[0].message.content.split():
-        response = response.choices[0].message.content.split("<question>")[0] + " \n\n ## Question " + response.choices[0].message.content.split("<question>")[1].split("</question>")[0]
-        st.session_state.messages.append({"role" : "assistant", "content" : response})
+        response = (
+            response.choices[0].message.content.split("<question>")[0]
+            + " \n\n ## Question "
+            + response.choices[0]
+            .message.content.split("<question>")[1]
+            .split("</question>")[0]
+        )
+        st.session_state.messages.append({"role": "assistant", "content": response})
     else:
-        st.session_state.messages.append({"role" : "assistant", "content" : response.choices[0].message.content})
+        st.session_state.messages.append(
+            {"role": "assistant", "content": response.choices[0].message.content}
+        )
 
 for message in st.session_state.messages[2:]:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+    if message["role"] == "assistant":
+        with st.chat_message(message["role"]):
+            feedback = None
+            score = None
+            question = None
+
+            m = re.search(r"<feedback>(.*)</feedback>", message["content"])
+            if m:
+                feedback = m.group(1)
+            m = re.search(r"<score>(.*)</score>", message["content"])
+            if m:
+                score = m.group(1)
+            m = re.search(r"<question>(.*)</question>", message["content"])
+            if m:
+                question = m.group(1)
+
+            if feedback is not None and score is not None:
+                st.markdown("# Score - \n\n " + score)
+                st.markdown("## Feedback - \n\n " + feedback)
+                st.markdown("## Next Question - \n\n " + question) if question is not None else st.markdown("Test Finished!")
+    else:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
 
 prompt = st.chat_input()
 if prompt:
@@ -67,14 +125,41 @@ if prompt:
     with st.chat_message("assistant"):
         message_placeholder = st.empty()
         response = client.chat.completions.create(
-            model = "gpt-4",
-            messages = st.session_state.messages)
-        full_response = response.choices[0].message.content
-        full_response = "AAAAAAAAA" + full_response
-        feedback = full_response.split("<feedback>")[1].split("</feedback>")[0]
-        score = full_response.split("<score>")[1].split("</score>")[0]
-        question = full_response.split("<question>")[1].split("</question>")[0]
-        message_placeholder.metric(label = "Score", value = int(score.strip().replace("/10", "")), delta = int(score.strip().replace("/10", "")) - 10)
-        st.markdown("## Feedback - \n\n " + feedback)
-        st.markdown("## Next Question - \n\n " + question)
-    st.session_state.messages.append({"role": "assistant", "content": score + " \n\n " + "## Feedback - \n\n " + feedback + " \n\n " + "## Next Question - \n\n " + question})
+            model="gpt-4", messages=st.session_state.messages
+        )
+
+        full_response = response.choices[0].message.content.replace("\n", "")
+
+        i = 0
+
+        while not check_response(full_response) and i < 3:
+            full_response = produce_response()
+            i += 1
+
+        feedback = None
+        score = None
+        question = None
+
+        m = re.search(r"<feedback>(.*)</feedback>", full_response)
+        if m:
+            feedback = m.group(1)
+        m = re.search(r"<score>(.*)</score>", full_response)
+        if m:
+            score = m.group(1)
+        m = re.search(r"<question>(.*)</question>", full_response)
+        if m:
+            question = m.group(1)
+
+        if feedback is not None and score is not None:
+            st.markdown("# Score - \n\n " + score)
+            st.markdown("## Feedback - \n\n " + feedback)
+            st.markdown("## Next Question - \n\n " + question) if question is not None else st.markdown("Test Finished!")
+            st.session_state.messages.append(
+                {
+                    "role": "assistant",
+                    "content": full_response
+                }
+            )
+        else:
+            st.write(full_response)
+            st.write("gpt failed")
