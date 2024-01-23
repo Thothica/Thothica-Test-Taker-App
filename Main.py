@@ -27,7 +27,7 @@ def check_response(response: str):
     if m:
         question = m.group(1)
 
-    if feedback is not None and score is not None and question is not None:
+    if feedback is not None and score is not None:
         return True
 
     return False
@@ -115,7 +115,8 @@ for n, message in enumerate(st.session_state.messages[2:]):
                 if feedback is not None and score is not None:
                     st.markdown("# Score - \n\n " + score)
                     st.markdown("## Feedback - \n\n " + feedback)
-                    st.markdown("## Next Question - \n\n " + question) if question is not None else st.markdown("Test Finished!")
+                    if question:
+                        st.markdown("## Next Question - \n\n " + question)
     else:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
@@ -156,7 +157,8 @@ if prompt:
         if feedback is not None and score is not None:
             st.markdown("# Score - \n\n " + score)
             st.markdown("## Feedback - \n\n " + feedback)
-            st.markdown("## Next Question - \n\n " + question) if question is not None else st.markdown("Test Finished!")
+            if question:
+                st.markdown("## Next Question - \n\n " + question)
             st.session_state.messages.append(
                 {
                     "role": "assistant",
