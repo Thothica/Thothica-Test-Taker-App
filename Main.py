@@ -35,7 +35,7 @@ def check_response(response: str):
 
 st.title("Thothica Test Taker App")
 
-client = OpenAI(api_key="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")
+client = OpenAI(api_key = st.secrets["OPENAI_API_KEY"])
 
 if "messages" not in st.session_state:
     st.session_state.messages = [
