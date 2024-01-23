@@ -92,27 +92,30 @@ if len(st.session_state.messages) == 2:
             {"role": "assistant", "content": response.choices[0].message.content}
         )
 
-for message in st.session_state.messages[2:]:
+for n, message in enumerate(st.session_state.messages[2:]):
     if message["role"] == "assistant":
-        with st.chat_message(message["role"]):
-            feedback = None
-            score = None
-            question = None
+        if n == 0:
+            st.markdown(message["content"])
+        else:
+            with st.chat_message(message["role"]):
+                feedback = None
+                score = None
+                question = None
 
-            m = re.search(r"<feedback>(.*)</feedback>", message["content"])
-            if m:
-                feedback = m.group(1)
-            m = re.search(r"<score>(.*)</score>", message["content"])
-            if m:
-                score = m.group(1)
-            m = re.search(r"<question>(.*)</question>", message["content"])
-            if m:
-                question = m.group(1)
+                m = re.search(r"<feedback>(.*)</feedback>", message["content"])
+                if m:
+                    feedback = m.group(1)
+                m = re.search(r"<score>(.*)</score>", message["content"])
+                if m:
+                    score = m.group(1)
+                m = re.search(r"<question>(.*)</question>", message["content"])
+                if m:
+                    question = m.group(1)
 
-            if feedback is not None and score is not None:
-                st.markdown("# Score - \n\n " + score)
-                st.markdown("## Feedback - \n\n " + feedback)
-                st.markdown("## Next Question - \n\n " + question) if question is not None else st.markdown("Test Finished!")
+                if feedback is not None and score is not None:
+                    st.markdown("# Score - \n\n " + score)
+                    st.markdown("## Feedback - \n\n " + feedback)
+                    st.markdown("## Next Question - \n\n " + question) if question is not None else st.markdown("Test Finished!")
     else:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
